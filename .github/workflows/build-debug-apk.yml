@@ -1,0 +1,33 @@
+name: Build debug APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ dev-pr5431 ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Load JDK version
+        run: echo "JAVA_VERSION=$(jq -r '.default' .github/jdk-map.json)" >> $GITHUB_ENV
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: gradle
+      - name: Build fullDebug (phone + wear)
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleFullDebug :wear:assembleFullDebug \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:+UseParallelGC -Xss4m" \
+            -Dkotlin.compiler.execution.strategy="in-process" \
+            --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aaps-debug-apk
+          path: |
+            app/build/outputs/apk/full/debug/*.apk
+            wear/build/outputs/apk/full/debug/*.apk
